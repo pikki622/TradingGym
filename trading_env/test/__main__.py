@@ -18,7 +18,7 @@ env = trading_env.make(env_id='training_v1', obs_data_len=256, step_len=128,
 
 env.reset()
 print(env.df_sample['datetime'].iloc[0].date())
-for i in range(500):
+for _ in range(500):
     #print(i)
     state, reward, done, info = env.step(np.random.randint(3))
     #print(state, reward)

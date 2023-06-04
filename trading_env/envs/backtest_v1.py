@@ -36,30 +36,30 @@ class trading_env:
         logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(message)s')
         self.logger = logging.getLogger(env_id)
         #self.file_loc_path = os.environ.get('FILEPATH', '')
-        
+
         self.df = df
         self.action_space = 3
         self.action_describe = {0:'do nothing',
                                 1:'long',
                                 2:'short'}
-        
+
         self.obs_len = obs_data_len
         self.feature_len = len(feature_names)
         self.observation_space = np.array([self.obs_len*self.feature_len,])
         self.using_feature = feature_names
         self.price_name = deal_col_name
-        
+
         self.step_len = step_len
         self.fee = fee
         self.max_position = max_position
-        
+
         self.fluc_div = fluc_div
         self.gameover = gameover_limit
         self.return_transaction = return_transaction
-        
+
         self.begin_fs = self.df[self.df['serial_number']==0]
         self.date_leng = len(self.begin_fs)
-        
+
         self.date_record = 0
         self.backtest_done = False
 
@@ -67,7 +67,7 @@ class trading_env:
         self.buy_color, self.sell_color = (1, 2)
         self.new_rotation, self.cover_rotation = (1, 2)
         self.transaction_details = pd.DataFrame()
-        self.logger.info('Making new env: {}'.format(env_id))
+        self.logger.info(f'Making new env: {env_id}')
     
     def _choice_section(self):
         assert self.date_record < self.date_leng, 'Backtest Done.'
@@ -77,11 +77,10 @@ class trading_env:
             end_point = None
         else:
             begin_point, end_point = self.begin_fs.index[section_int: section_int+2]
-        df_section = self.df.iloc[begin_point: end_point]
         self.date_record += 1
         if self.date_record >= self.date_leng:
-            self.backtest_done = True 
-        return df_section
+            self.backtest_done = True
+        return self.df.iloc[begin_point: end_point]
 
     def reset(self):
         self.render_on = 0
@@ -139,29 +138,29 @@ class trading_env:
         if open_posi:
             self.chg_price_mean[:] = enter_price
             self.chg_posi[:] = 1
-            self.chg_posi_var[:1] = 1
             self.chg_posi_entry_cover[:1] = 1
         else:
             after_act_mkt_position = current_mkt_position + 1
             self.chg_price_mean[:] = (current_price_mean*current_mkt_position + \
-                                        enter_price)/after_act_mkt_position
+                                            enter_price)/after_act_mkt_position
             self.chg_posi[:] = after_act_mkt_position
-            self.chg_posi_var[:1] = 1
             self.chg_posi_entry_cover[:1] = 2
+
+        self.chg_posi_var[:1] = 1
             
     def _short(self, open_posi, enter_price, current_mkt_position, current_price_mean):
         if open_posi:
             self.chg_price_mean[:] = enter_price
             self.chg_posi[:] = -1
-            self.chg_posi_var[:1] = -1
             self.chg_posi_entry_cover[:1] = 1
         else:
             after_act_mkt_position = current_mkt_position - 1
             self.chg_price_mean[:] = (current_price_mean*abs(current_mkt_position) + \
-                                      enter_price)/abs(after_act_mkt_position)
+                                          enter_price)/abs(after_act_mkt_position)
             self.chg_posi[:] = after_act_mkt_position
-            self.chg_posi_var[:1] = -1
             self.chg_posi_entry_cover[:1] = 2
+
+        self.chg_posi_var[:1] = -1
           
     def _short_cover(self, current_price_mean, current_mkt_position):
         self.chg_price_mean[:] = current_price_mean
@@ -350,7 +349,11 @@ class trading_env:
             rect3 = [left, 0.05, width, 0.15]
 
             self.fig = plt.figure(figsize=(15,8))
-            self.fig.suptitle('%s'%self.df_sample['datetime'].iloc[0].date(), fontsize=14, fontweight='bold')
+            self.fig.suptitle(
+                f"{self.df_sample['datetime'].iloc[0].date()}",
+                fontsize=14,
+                fontweight='bold',
+            )
             #self.ax = self.fig.add_subplot(1,1,1)
             self.ax = self.fig.add_axes(rect1)  # left, bottom, width, height
             self.ax2 = self.fig.add_axes(rect2, sharex=self.ax)
@@ -367,7 +370,7 @@ class trading_env:
             #self.fig.tight_layout()
             plt.show()
             if save:
-                self.fig.savefig('fig/%s.png' % str(self.t_index))
+                self.fig.savefig(f'fig/{str(self.t_index)}.png')
 
         elif self.render_on == 1:
             self.ax.lines.remove(self.price_plot[0])
@@ -386,5 +389,5 @@ class trading_env:
 
             self.ax.set_xlim(0,len(self.price[:self.step_st+self.obs_len])+200)
             if save:
-                self.fig.savefig('fig/%s.png' % str(self.t_index))
+                self.fig.savefig(f'fig/{str(self.t_index)}.png')
             plt.pause(0.0001)

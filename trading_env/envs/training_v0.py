@@ -33,32 +33,32 @@ class trading_env:
         logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(message)s')
         self.logger = logging.getLogger(env_id)
         #self.file_loc_path = os.environ.get('FILEPATH', '')
-        
+
         self.df = df
         self.action_space = np.array([3,])
         self.gym_actions = range(3)
-        
+
         self.obs_len = obs_data_len
         self.feature_len = len(feature_names)
         self.observation_space = np.array([self.obs_len*self.feature_len,])
         self.using_feature = feature_names
         self.price_name = deal_col_name
-        
+
         self.step_len = step_len
         self.fee = fee
         self.max_position = max_position
-        
+
         self.fluc_div = fluc_div
         self.gameover = gameover_limit
-        
+
         self.begin_fs = self.df[self.df['serial_number']==0]
         self.date_leng = len(self.begin_fs)
-        
+
         self.render_on = 0
         self.buy_color, self.sell_color = (1, 2)
         self.new_rotation, self.cover_rotation = (1, 2)
         self.transaction_details = pd.DataFrame()
-        self.logger.info('Making new env: {}'.format(env_id))
+        self.logger.info(f'Making new env: {env_id}')
         
     def reset(self):
         random_int = np.random.randint(self.date_leng)
@@ -121,7 +121,7 @@ class trading_env:
              ,index=[self.t_index],columns=['step','datetime','transact','transact_type','price','share','price_mean','position','reward_fluc',
                                             'reward','reward_sum','color','rotation'])
             self.transaction_details = pd.concat([self.transaction_details,transact_n])
-        
+
         elif action == 2 and -self.max_position < self.posi_l[-1] <= 0:
             self.sell_price = self.price_current
             if self.posi_l[-1] < 0:
@@ -134,7 +134,7 @@ class trading_env:
                 self.reward_fluctuant = 0.0
                 self.position_share = -1.0
                 self.price_mean = self.sell_price
-            
+
             self.posi_l+=([self.posi_l[-1] - 1 ]*self.step_len)
             self.t_index += 1
             transact_n = pd.DataFrame({'step': next_index,
@@ -149,7 +149,7 @@ class trading_env:
              ,index=[self.t_index],columns=['step','datetime','transact','transact_type','price','share','price_mean','position','reward_fluc',
                                             'reward','reward_sum','color','rotation'])
             self.transaction_details = pd.concat([self.transaction_details,transact_n])        
-            
+
         elif action == 1 and self.posi_l[-1]<0:
             self.buy_price = self.price_current
 
@@ -157,7 +157,7 @@ class trading_env:
             abs_pos = abs(self.position_share)
             self.reward_fluctuant = self.price_current*self.position_share - self.transaction_details.iloc[-1]['price_mean']*self.position_share - self.fee*abs_pos
             self.position_share +=1
-            
+
             reward = self.transaction_details.iloc[-1]['price_mean'] - self.buy_price - self.fee
             self.reward_sum += reward
             self.make_real = 1
@@ -175,15 +175,15 @@ class trading_env:
              ,index=[self.t_index],columns=['step','datetime','transact','transact_type','price','share','price_mean','position','reward_fluc',
                                             'reward','reward_sum','color','rotation'])
             self.transaction_details = pd.concat([self.transaction_details,transact_n])
-        
+
         elif action == 2 and self.posi_l[-1]>0:
             self.sell_price = self.price_current
-            
+
             self.position_share = self.transaction_details.iloc[-1].loc['position']
             abs_pos = abs(self.position_share)
             self.reward_fluctuant = self.price_current*self.position_share - self.transaction_details.iloc[-1]['price_mean']*self.position_share - self.fee*abs_pos
             self.position_share -=1
-            
+
             reward = self.sell_price - self.transaction_details.iloc[-1]['price_mean'] - self.fee
             self.reward_sum += reward
             self.make_real = 1
@@ -201,7 +201,7 @@ class trading_env:
              ,index=[self.t_index],columns=['step','datetime','transact','transact_type','price','share','price_mean','position','reward_fluc',
                                             'reward','reward_sum','color','rotation'])
             self.transaction_details = pd.concat([self.transaction_details,transact_n])
-        
+
         elif action ==1 and self.posi_l[-1]==self.max_position:
             action = 0
         elif action == 2 and self.posi_l[-1]== -self.max_position:
@@ -209,19 +209,17 @@ class trading_env:
 
         if action ==0:
             if self.posi_l[-1] != 0:
-                self.posi_l+=([self.posi_l[-1]]*self.step_len)
-                self.t_index +=1
                 self.position_share = self.transaction_details.iloc[-1].loc['position']
                 abs_pos = abs(self.position_share)
                 self.reward_fluctuant = self.price_current*self.position_share - self.transaction_details.iloc[-1]['price_mean']*self.position_share - self.fee*abs_pos
             else:
-                self.posi_l+=([self.posi_l[-1]]*self.step_len)
-                self.t_index +=1
                 self.reward_fluctuant = 0.0
-            
+
+            self.t_index +=1
+            self.posi_l+=([self.posi_l[-1]]*self.step_len)
         self.reward_curve.append((self.step_st+self.obs_len, self.reward_fluctuant+self.reward_sum))
-        
-        
+
+
         self.step_st += self.step_len
         done = False
         if self.step_st+self.obs_len+self.step_len >= len(self.price):
@@ -248,7 +246,7 @@ class trading_env:
                                             'reward','reward_sum','color','rotation'])
                 self.transaction_details = pd.concat([self.transaction_details,transact_n])
 
-                
+
             if self.posi_l[-1] > 0:
                 self.make_real = 1
                 self.sell_price = self.price_current
@@ -271,8 +269,8 @@ class trading_env:
                                             'reward','reward_sum','color','rotation'])
                 self.transaction_details = pd.concat([self.transaction_details,transact_n])
 
-                
-                
+
+
         elif self.gameover and self.reward_sum+self.reward_fluctuant < -self.gameover:#3.5:
             done = True
             if self.posi_l[-1] < 0:
@@ -297,7 +295,7 @@ class trading_env:
                                             'reward','reward_sum','color','rotation'])
                 self.transaction_details = pd.concat([self.transaction_details,transact_n])
 
-                
+
             if self.posi_l[-1] > 0:
                 self.make_real = 1
                 self.sell_price = self.price_current
@@ -320,10 +318,10 @@ class trading_env:
                                             'reward','reward_sum','color','rotation'])
                 self.transaction_details = pd.concat([self.transaction_details,transact_n])
 
-        
+
         #self.logger.debug('Setp %d : make action %d'%(self.t_index,action))
         self.obs_res = self.obs_features[self.step_st: self.step_st+self.obs_len]
-        
+
         # position feature
         #self.position_feature = np.array(self.posi_l[self.step_st:self.step_st+self.obs_len])/(self.max_position*2)+0.5
         #self.obs_res = np.array([self.price_feature,self.up_down_feature,self.ask_bid_feature,self.vol_feature,self.position_feature]).reshape(1,self.obs_len,self.feature_len)
@@ -333,8 +331,6 @@ class trading_env:
             self.reward_ret = self.reward_fluctuant/self.fluc_div
         elif self.make_real ==1:
             self.reward_ret = reward
-        #if self.reward_ret < 0:
-            #self.reward_ret = -0.005
         #self.obs_res = np.concatenate((self.obs_pv.reshape(self.obs_len*self.feature_len),self.position))#.astype(float)
         info = None
         return self.obs_res, self.reward_ret, done, info
@@ -350,7 +346,11 @@ class trading_env:
             rect3 = [left, 0.05, width, 0.15]
 
             self.fig = plt.figure(figsize=(15,8))
-            self.fig.suptitle('%s'%self.df_sample['datetime'].iloc[0].date(), fontsize=14, fontweight='bold')
+            self.fig.suptitle(
+                f"{self.df_sample['datetime'].iloc[0].date()}",
+                fontsize=14,
+                fontweight='bold',
+            )
             #self.ax = self.fig.add_subplot(1,1,1)
             self.ax = self.fig.add_axes(rect1)  # left, bottom, width, height
             self.ax2 = self.fig.add_axes(rect2, sharex=self.ax)
@@ -389,7 +389,7 @@ class trading_env:
             #self.fig.tight_layout()
             plt.show()
             if save:
-                self.fig.savefig('fig/%s.png' % str(self.t_index))
+                self.fig.savefig(f'fig/{str(self.t_index)}.png')
         elif self.render_on == 1:
             self.ax.lines.remove(self.price_plot[0])
             self.ax3.lines.remove(self.vol_plot[0])
@@ -435,7 +435,7 @@ class trading_env:
                     self.trade_plot = self.ax.scatter(x=trade_x,y=trade_y,s=100,marker='v',c=trade_color,edgecolors='none',zorder=2)
             self.ax.set_xlim(0,len(self.price[:self.step_st+self.obs_len])+200)
             if save:
-                self.fig.savefig('fig/%s.png' % str(self.t_index))
+                self.fig.savefig(f'fig/{str(self.t_index)}.png')
             plt.pause(0.0001)
     
     
